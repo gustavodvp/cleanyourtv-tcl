@@ -3,7 +3,7 @@
   "wallpaper": true,
   "dock_apps": [
     "com.netflix.ninja",
-    "org.smarttube.stable",
+    "app.smarttube.fdroid",
     "com.amazon.amazonvideo.livingroom",
     "com.wbd.stream",
     "com.globo.globotv"
