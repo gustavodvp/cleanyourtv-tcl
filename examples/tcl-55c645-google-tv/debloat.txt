@@ -48,5 +48,5 @@ com.tcl.miracast
 com.tcl.magiconnectfree
 # AstroTVService: WPE WebKit + media player, most likely broadcast (antenna) interactivity. Channels still play.
 com.mirakulo.astrotv.service
-# Google Assistant / voice search: about 133 MB of RAM always on. The remote's mic button stops working.
-com.google.android.katniss
+# Google Assistant / voice search (com.google.android.katniss) stays: disabling it freed only ~18 MB of
+# available RAM and took the remote's mic button away. Re-enabled on 2026-10-19.
