@@ -10,6 +10,31 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Theme pictures (screensaver*.jpg): two views so one can fade over the other. -->
+    <ImageView
+        android:id="@+id/dreamPictureA"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0"
+        android:contentDescription="@null" />
+
+    <ImageView
+        android:id="@+id/dreamPictureB"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0"
+        android:contentDescription="@null" />
+
+    <!-- Dims the pictures so the clock reads anywhere it drifts. -->
+    <View
+        android:id="@+id/dreamDim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#4D000000"
+        android:visibility="gone" />
+
     <LinearLayout
         android:id="@+id/dreamContent"
         android:layout_width="wrap_content"
