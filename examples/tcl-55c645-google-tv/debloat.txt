@@ -30,3 +30,7 @@ com.tcl.smartlink.core
 
 # Google TV setup wizard: claims HOME (priority 1) and blocks the new launcher. Re-enable before a factory reset.
 com.google.android.tungsten.setupwraith
+
+# Official YouTube for TV, replaced by SmartTube (org.smarttube.stable) on 2026-10-19 at Gustavo's request.
+# Note: casting from the phone's YouTube app to the TV needs this package (or SmartTube's own phone link).
+com.google.android.youtube.tv

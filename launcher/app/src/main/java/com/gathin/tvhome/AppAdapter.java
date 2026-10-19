@@ -185,6 +185,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     private Drawable loadBanner(PackageManager pm, ResolveInfo ri) {
+        // A theme can give any app its own tile art: banner-<package>.png next to config.json
+        // (e.g. the YouTube banner on SmartTube). It wins over the app's own banner.
+        java.io.File dir = Config.dir(ctx);
+        if (dir != null) {
+            java.io.File custom = new java.io.File(dir, "banner-" + ri.activityInfo.packageName + ".png");
+            if (custom.isFile()) {
+                android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(custom.getPath());
+                if (bmp != null) return new android.graphics.drawable.BitmapDrawable(ctx.getResources(), bmp);
+            }
+        }
         int id = ri.activityInfo.banner;
         if (id == 0) id = ri.activityInfo.applicationInfo.banner;
         if (id != 0) {

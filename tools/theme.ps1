@@ -21,7 +21,7 @@ $pkg = 'com.gathin.tvhome'
 $dir = "/sdcard/Android/data/$pkg/files"
 
 if ($Reset) {
-    & $py -I tv.py "rm -f $dir/config.json $dir/wallpaper.jpg $dir/screensaver*.jpg; am force-stop $pkg; am start -n $pkg/.MainActivity >/dev/null; echo reset"
+    & $py -I tv.py "rm -f $dir/config.json $dir/wallpaper.jpg $dir/screensaver*.jpg $dir/banner-*.png; am force-stop $pkg; am start -n $pkg/.MainActivity >/dev/null; echo reset"
     exit 0
 }
 if (-not $Theme) { throw 'usage: theme.ps1 <theme folder> | -Reset' }
@@ -33,6 +33,11 @@ try { Get-Content $config -Raw | ConvertFrom-Json | Out-Null } catch { throw "$c
 & $py -I tv.py --push $config "$dir/config.json"
 $wall = Join-Path $Theme 'wallpaper.jpg'
 if (Test-Path $wall) { & $py -I b64push.py $wall "$dir/wallpaper.jpg" } else { & $py -I tv.py "rm -f $dir/wallpaper.jpg" | Out-Null }
+# Custom tile art (banner-<package>.png): replace whatever the TV had with this theme's.
+& $py -I tv.py "rm -f $dir/banner-*.png" | Out-Null
+foreach ($pic in Get-ChildItem $Theme -Filter 'banner-*.png' | Sort-Object Name) {
+    & $py -I b64push.py $pic.FullName "$dir/$($pic.Name)"
+}
 # Screensaver pictures (screensaver*.jpg): replace whatever set the TV had with this theme's.
 & $py -I tv.py "rm -f $dir/screensaver*.jpg" | Out-Null
 foreach ($pic in Get-ChildItem $Theme -Filter 'screensaver*.jpg' | Sort-Object Name) {
