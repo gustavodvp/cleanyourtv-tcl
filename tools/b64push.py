@@ -22,6 +22,7 @@ def main():
     want = hashlib.md5(data).hexdigest()
     dev = tv.connect()
     chunk = min(CHUNK, dev.max_chunk_size * 3 // 4 - 64)   # base64 of the chunk plus the echo must fit one payload
+    chunk -= chunk % 3   # whole 3-byte groups: no '=' padding mid-stream, which toybox base64 -d stops at
     tmp = remote + ".b64"
     dev.shell(f"rm -f {remote} {tmp}")
     n = (len(data) + chunk - 1) // chunk

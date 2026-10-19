@@ -1,0 +1,32 @@
+# TCL 55C645 (QLED 2023, BR), Google TV, Android 12, device G09. Base: examples/tcl-g10-google-tv.
+# Disabled for user 0 only. Undo: tools\restore.ps1 -TvHost <ip> <this file> -Stock com.google.android.apps.tv.launcherx
+# Kept on purpose: com.tcl.exhibit, com.tcl.partnercustomizer (T key), com.google.android.videos,
+# com.tcl.tv / com.tcl.tvinput (Live TV, HDMI), com.pandora.tv, Tailscale, Moonlight, TV Bro.
+
+# Already disabled on 2026-10-18 (listed so restore covers them)
+com.tcl.esticker
+com.tcl.messagebox
+com.tcl.waterfall.overseas
+com.tcl.logkit
+com.google.android.feedback
+android.autoinstalls.config.google.gtvpai
+com.google.android.play.games
+com.google.android.youtube.tvmusic
+
+# TCL content, promos and preloads
+com.tcl.channelplus
+com.tcl.tv.tclhome_passive
+com.tcl.interactive
+com.tcl.ocean.instructions
+com.tcl.repairguide
+com.tcl.gamebar
+
+# Optional, approved by Gustavo on 2026-10-19
+com.google.android.apps.tv.dreamx
+com.google.android.marvin.talkback
+com.tcl.airplay2
+com.google.android.tv.remote.service
+com.tcl.smartlink.core
+
+# Google TV setup wizard: claims HOME (priority 1) and blocks the new launcher. Re-enable before a factory reset.
+com.google.android.tungsten.setupwraith
