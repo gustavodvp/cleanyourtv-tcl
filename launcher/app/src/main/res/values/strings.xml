@@ -18,6 +18,8 @@
     <string name="offline">Offline</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
+    <!-- Date under the centred clock: %1$d day of month, %2$s month name. -->
+    <string name="date_line">%2$s %1$d</string>
     <string name="date_format">EEEE  d MMMM</string>
     <string name="dream_name">Clock</string>
     <string name="vpn">VPN</string>

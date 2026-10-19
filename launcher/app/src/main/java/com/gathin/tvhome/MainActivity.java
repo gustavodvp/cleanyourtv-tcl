@@ -100,6 +100,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private File wallFile;
     private ImageView wallView;
+    /** The top button shown open as a labelled pill: the focused one, none while focus is elsewhere. */
+    private TextView openPill;
+    private TextView[] topButtonViews = new TextView[0];
     private boolean resumed;
     /**
      * The tiles need rebuilding: first start, or an app was installed, removed or changed while the home
@@ -259,12 +262,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
         btnSettings.setOnClickListener(v -> open(systemIntent(Settings.ACTION_SETTINGS)));
-        // tvOS top bar: round icon buttons that open into a labelled pill while focused.
-        for (TextView b : new TextView[]{(TextView) btnInputs, btnWifi, (TextView) btnSettings}) {
-            b.setTag(R.id.pill_label, b.getText());
+        // Top bar: round icon buttons; the focused one opens into a pill with its label (Wi-Fi shows the
+        // network name), always at the same width. The clock is centred apart from them.
+        openPill = null;
+        topButtonViews = new TextView[]{(TextView) btnInputs, btnWifi, (TextView) btnSettings};
+        for (TextView b : topButtonViews) b.setTag(R.id.pill_label, b.getText());   // all labels first: the pill width needs them
+        for (TextView b : topButtonViews) {
             View.OnFocusChangeListener previous = b.getOnFocusChangeListener();
             b.setOnFocusChangeListener((v, f) -> {
                 if (previous != null) previous.onFocusChange(v, f);
+                if (f) openPill = b;
+                else if (openPill == b) openPill = null;   // moving to the next button opens it right after
                 applyPill(b);
             });
             applyPill(b);
@@ -455,17 +463,43 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
     }
 
-    /** Collapses a top button to its round icon, or opens it into a pill with its label while focused. */
+    private static String capitalise(String s, Locale loc) {
+        return s.isEmpty() ? s : s.substring(0, 1).toUpperCase(loc) + s.substring(1);
+    }
+
+    /** Shows a top button as a labelled pill when it is the open one, otherwise as its round icon. */
     private void applyPill(TextView b) {
-        boolean open = b.isFocused();
+        boolean open = b == openPill;
         Object label = b.getTag(R.id.pill_label);
         b.setText(open && label != null ? (CharSequence) label : "");
         b.setCompoundDrawablePadding(open ? Math.round(9 * density) : 0);
         int side = Math.round(11 * density);
-        b.setPaddingRelative(open ? Math.round(16 * density) : side, 0, open ? Math.round(20 * density) : side, 0);
+        if (open) {
+            // Every open pill is as wide as the widest of the three, so moving between them never changes
+            // the row's width; the spare room is split on both sides to keep icon and text centred.
+            int widest = 0;
+            for (TextView t : topButtonViews) widest = Math.max(widest, pillWidth(t));
+            int extra = Math.max(0, widest - pillWidth(b));
+            b.setMaxWidth(widest);
+            b.setMinWidth(widest);
+            b.setPaddingRelative(Math.round(16 * density) + extra / 2, 0, Math.round(20 * density) + extra - extra / 2, 0);
+        } else {
+            b.setMinWidth(Math.round(44 * density));
+            b.setPaddingRelative(side, 0, side, 0);
+        }
+        b.scrollTo(0, 0);   // a single-line TextView can keep an offset from its previous text
     }
 
-    /** Sets a top button's label; it shows while the button is focused (applyPill). */
+    /** Natural width of a top button opened with its label: paddings, icon, gap and text (spans included). */
+    private int pillWidth(TextView t) {
+        Object label = t.getTag(R.id.pill_label);
+        float text = label != null ? android.text.Layout.getDesiredWidth((CharSequence) label, t.getPaint()) : 0f;
+        android.graphics.drawable.Drawable icon = t.getCompoundDrawablesRelative()[0];
+        int iconW = icon != null ? icon.getIntrinsicWidth() : 0;
+        return (int) Math.ceil(text) + iconW + Math.round((9 + 16 + 20) * density);
+    }
+
+    /** Sets a top button's label; it shows while the button is the open pill (applyPill). */
     private void setPillLabel(TextView b, CharSequence label) {
         b.setTag(R.id.pill_label, label);
         applyPill(b);
@@ -691,6 +725,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         else if (hour < 22) res = R.string.good_evening;
         else res = R.string.good_night;
         greeting.setText(res);
+        // "19 de Outubro" / "Segunda-feira" under the centred clock, month and weekday capitalised.
+        Calendar now = Calendar.getInstance();
+        Locale loc = getResources().getConfiguration().getLocales().get(0);
+        String month = new java.text.SimpleDateFormat("LLLL", loc).format(now.getTime());
+        String weekday = new java.text.SimpleDateFormat("EEEE", loc).format(now.getTime());
+        ((TextView) findViewById(R.id.dateLine)).setText(getString(R.string.date_line, now.get(Calendar.DAY_OF_MONTH), capitalise(month, loc)));
+        ((TextView) findViewById(R.id.weekdayLine)).setText(capitalise(weekday, loc));
         if (shamsi) shamsiDate.setText(Shamsi.today());
     }
 

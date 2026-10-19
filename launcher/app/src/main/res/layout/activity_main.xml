@@ -176,19 +176,6 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <!-- tvOS: just the time, small, next to the round buttons. -->
-                <TextClock
-                    android:id="@+id/clockSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="8dp"
-                    android:format12Hour="h:mm"
-                    android:format24Hour="HH:mm"
-                    android:textColor="#F2FFFFFF"
-                    android:textSize="22sp"
-                    android:fontFamily="@font/outfit"
-                    android:fontVariationSettings="'wght' 400"
-                    android:includeFontPadding="false" />
 
                 <TextView
                     android:id="@+id/btnInputs"
@@ -235,6 +222,61 @@
                 android:scrollbars="none"
                 android:descendantFocusability="afterDescendants" />
         </FrameLayout>
+    </LinearLayout>
+
+    <!-- The time, large and centred at the top, apart from the buttons so nothing pushes it around,
+         with the date and the weekday under it (set in MainActivity.updateGreeting). -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="24dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:importantForAccessibility="no">
+
+        <TextClock
+            android:id="@+id/clockCenter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format12Hour="h:mm"
+            android:format24Hour="HH:mm"
+            android:textColor="#FFFFFFFF"
+            android:textSize="40sp"
+            android:fontFamily="@font/outfit"
+            android:fontVariationSettings="'wght' 300"
+            android:letterSpacing="-0.02"
+            android:shadowColor="#80000000"
+            android:shadowRadius="12"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:id="@+id/dateLine"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:textColor="#F2FFFFFF"
+            android:textSize="20sp"
+            android:fontFamily="@font/outfit"
+            android:fontVariationSettings="'wght' 400"
+            android:shadowColor="#99000000"
+            android:shadowRadius="10"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/weekdayLine"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:textColor="#B3FFFFFF"
+            android:textSize="17sp"
+            android:fontFamily="@font/outfit"
+            android:fontVariationSettings="'wght' 400"
+            android:shadowColor="#99000000"
+            android:shadowRadius="10"
+            android:singleLine="true" />
     </LinearLayout>
 
     <!-- The single floating glass highlight that springs between tiles. -->

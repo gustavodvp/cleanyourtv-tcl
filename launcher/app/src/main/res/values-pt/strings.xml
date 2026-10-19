@@ -18,6 +18,7 @@
     <string name="offline">Sem conexão</string>
     <string name="not_available">Não disponível nesta TV</string>
     <string name="cant_open">Não foi possível abrir %1$s</string>
+    <string name="date_line">%1$d de %2$s</string>
     <string name="date_format">EEE, d \'de\' MMMM</string>
     <string name="dream_name">Relógio</string>
     <string name="vpn">VPN</string>
