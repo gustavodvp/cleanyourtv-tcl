@@ -93,9 +93,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean shamsi;
     private String vpnApp;
     private boolean glassShown;
-    /** The theme's wallpaper file and the view showing it; the bitmap is dropped while the launcher is hidden. */
+    /**
+     * The theme's wallpaper file and the view showing it. The bitmap (4 MB, RGB_565) stays for the life of
+     * the activity: dropping it in onStop and decoding again on every return cost a fresh texture each time
+     * and grew the graphics memory by about 2 MB per trip Home, for a slower return.
+     */
     private File wallFile;
     private ImageView wallView;
+    private boolean resumed;
+    /**
+     * The tiles need rebuilding: first start, or an app was installed, removed or changed while the home
+     * screen was away. Otherwise coming back Home reuses the tiles as they are, which is what makes it fast.
+     */
+    private boolean appsDirty = true;
     // Static so they survive the activity being destroyed while another app is open (low-memory TVs,
     // or Developer options → "Don't keep activities"); they only reset when the process dies.
     private static int lastFocused = 0;
@@ -161,7 +171,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Updates send REMOVED followed by ADDED; keep the tile until the new APK is ready.
             if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
                     && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
-            reloadApps(false);
+            if (resumed) reloadApps(false);
+            else appsDirty = true;   // rebuilt on the next onResume
         }
     };
     private final Runnable minuteTick = new Runnable() {
@@ -295,6 +306,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         packageFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
         packageFilter.addDataScheme("package");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(packageReceiver, packageFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(packageReceiver, packageFilter);
+        }
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
@@ -313,6 +329,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * JPEG costs a 1080p bitmap at most (about 8 MB), which is the price of a wallpaper on a 1 GB TV.
      */
     private void showWallpaper(File file) {
+        android.graphics.Bitmap bmp = decodeWallpaper(file);
+        if (bmp == null) return;
+        if (wallView == null) {
+            wallView = new ImageView(this);
+            wallView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            root.addView(wallView, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        wallView.setImageBitmap(bmp);
+        // The picture covers the screen: skip painting the window and root colours under it.
+        root.setBackground(null);
+        getWindow().setBackgroundDrawable(null);
+    }
+
+    /** Decodes the wallpaper at screen size; safe on any thread. Null when it cannot be read. */
+    private android.graphics.Bitmap decodeWallpaper(File file) {
         try {
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
             android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
@@ -323,19 +354,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             opts.inJustDecodeBounds = false;
             opts.inSampleSize = sample;
             opts.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;   // no alpha needed, half the memory
-            android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
-            if (bmp == null) return;
-            if (wallView == null) {
-                wallView = new ImageView(this);
-                wallView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                root.addView(wallView, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            }
-            wallView.setImageBitmap(bmp);
-            // The picture covers the screen: skip painting the window and root colours under it.
-            root.setBackground(null);
-            getWindow().setBackgroundDrawable(null);
+            return android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
         } catch (Exception | OutOfMemoryError e) {
             // A bad or huge picture must never take the home screen down; the plain colour stays.
+            return null;
         }
     }
 
@@ -356,14 +378,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(packageReceiver, packageFilter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(packageReceiver, packageFilter);
-        }
+        resumed = true;
         tilesReady = false;
         promptsPaused = false;
-        reloadApps(true);
+        if (appsDirty) {
+            appsDirty = false;
+            reloadApps(true);
+        } else {
+            restoreFocus();
+        }
         updateGreeting();
         updateWifiLabel();
         updateInputsButton();
@@ -432,26 +455,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        if (wallFile != null && wallView != null && wallView.getDrawable() == null) showWallpaper(wallFile);
-    }
-
-    /**
-     * Another app is on screen: give its memory back. The wallpaper bitmap and every app banner go;
-     * onStart decodes the picture again and onResume rebuilds the tiles, as it always does.
-     */
-    @Override
-    protected void onStop() {
-        super.onStop();
-        if (wallView != null) {
-            wallView.setImageDrawable(null);
-            root.setBackgroundColor(Color.BLACK);
-        }
-        adapter.releaseImages(grid);
-    }
-
     /** Collapses a top button to its round icon, or opens it into a pill with its label while focused. */
     private void applyPill(TextView b) {
         boolean open = b.isFocused();
@@ -471,7 +474,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(packageReceiver);
+        resumed = false;
         handler.removeCallbacks(minuteTick);
         // Nothing of ours stays on screen over another app; an undecided prompt simply returns next time.
         if (cardPrompt != null) cardPrompt.dismiss();
@@ -487,6 +490,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(packageReceiver);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);

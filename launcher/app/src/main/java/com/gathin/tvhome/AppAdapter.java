@@ -243,7 +243,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             h.label.setText(e.label);
             h.label.setVisibility(View.VISIBLE);
         }
-        h.card.setOnClickListener(v -> launch(e));
+        h.card.setOnClickListener(v -> launch(e, v));
         h.card.setOnLongClickListener(v -> {
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -256,7 +256,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     /** Opens the tile's activity by explicit component, with no extras: a card can name nothing else. */
-    private void launch(Entry e) {
+    private void launch(Entry e, View from) {
         if (e.kind == Entry.HOME_SETTINGS) {
             ctx.startActivity(new Intent(ctx, HomeSettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -267,7 +267,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 .setComponent(e.component)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         try {
-            ctx.startActivity(i);
+            // tvOS: the app grows out of its tile, so the press answers on the very next frame.
+            ctx.startActivity(i, android.app.ActivityOptions.makeScaleUpAnimation(
+                    from, 0, 0, from.getWidth(), from.getHeight()).toBundle());
         } catch (Exception ex) {
             Toast.makeText(ctx, ctx.getString(R.string.cant_open, e.label), Toast.LENGTH_SHORT).show();
         }
@@ -356,23 +358,6 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return 16f * density * Math.min(1f, tileWidthPx / (DESIGN_W_DP * density));
     }
 
-    /**
-     * Drops every banner and icon while another app is on screen, so the home screen holds no artwork
-     * the TV could use for video. onResume rebuilds the tiles anyway (MainActivity.reloadApps).
-     */
-    void releaseImages(RecyclerView grid) {
-        for (int i = 0; i < grid.getChildCount(); i++) {
-            RecyclerView.ViewHolder vh = grid.getChildViewHolder(grid.getChildAt(i));
-            if (vh instanceof Holder) {
-                ((Holder) vh).banner.setImageDrawable(null);
-                ((Holder) vh).icon.setImageDrawable(null);
-            }
-        }
-        grid.getRecycledViewPool().clear();
-        items.clear();
-        notifyDataSetChanged();
-    }
-
     static final class Holder extends RecyclerView.ViewHolder {
         final View card;
         final View sheen;
@@ -407,6 +392,17 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setClipToOutline(true);
 
             card.setOnKeyListener((view, keyCode, event) -> {
+                // Open the app as OK goes down instead of when it comes back up: one press shorter.
+                // The up is swallowed so it cannot click again; the app details move to the Menu key.
+                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                        || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_BUTTON_A) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) view.performClick();
+                    return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_INFO) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) view.performLongClick();
+                    return true;
+                }
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN
                         && keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
