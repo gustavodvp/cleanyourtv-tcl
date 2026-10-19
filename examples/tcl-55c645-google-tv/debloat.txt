@@ -34,3 +34,19 @@ com.google.android.tungsten.setupwraith
 # Official YouTube for TV, replaced by SmartTube (org.smarttube.stable) on 2026-10-19 at Gustavo's request.
 # Note: casting from the phone's YouTube app to the TV needs this package (or SmartTube's own phone link).
 com.google.android.youtube.tv
+
+# Second pass, approved by Gustavo on 2026-10-19: never used, or features he does not use.
+com.tcl.smartalexa
+com.amlogic.airplay
+com.tcl.guard
+com.tcl.hotelmenu
+com.tcl.usercenter
+com.tcl.UpdatePeripheral
+com.android.printspooler
+com.tcl.hearaid
+com.tcl.miracast
+com.tcl.magiconnectfree
+# AstroTVService: WPE WebKit + media player, most likely broadcast (antenna) interactivity. Channels still play.
+com.mirakulo.astrotv.service
+# Google Assistant / voice search: about 133 MB of RAM always on. The remote's mic button stops working.
+com.google.android.katniss
