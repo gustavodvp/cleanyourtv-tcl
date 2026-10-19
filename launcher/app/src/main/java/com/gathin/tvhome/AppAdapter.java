@@ -82,7 +82,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
     }
 
-    static final float FOCUS_SCALE = 1.10f;
+    static final float FOCUS_SCALE = 1.12f;
     /** Design size of a tile (dp); tiles shrink from here when the columns don't fit, see tileWidthPx. */
     static final float DESIGN_W_DP = 180f, DESIGN_H_DP = 101f;
 
@@ -224,11 +224,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     public void onBindViewHolder(@NonNull Holder h, int position) {
         Entry e = items.get(position);
         h.name.setText(e.name);
-        h.name.setVisibility(position < dockSize ? View.INVISIBLE : View.VISIBLE);   // the dock has no labels
         boolean focused = h.card.isFocused();   // a rebind after reload() can hit the focused tile
         h.name.setAlpha(focused ? 1f : 0f);
         h.card.setScaleX(focused ? FOCUS_SCALE : 1f);
         h.card.setScaleY(focused ? FOCUS_SCALE : 1f);
+        h.card.setTranslationZ(focused ? h.lift : 0f);
+        h.sheen.setAlpha(focused ? 1f : 0f);
         if (e.banner != null) {
             h.banner.setImageDrawable(e.banner);
             h.banner.setVisibility(View.VISIBLE);
@@ -355,8 +356,27 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return 16f * density * Math.min(1f, tileWidthPx / (DESIGN_W_DP * density));
     }
 
+    /**
+     * Drops every banner and icon while another app is on screen, so the home screen holds no artwork
+     * the TV could use for video. onResume rebuilds the tiles anyway (MainActivity.reloadApps).
+     */
+    void releaseImages(RecyclerView grid) {
+        for (int i = 0; i < grid.getChildCount(); i++) {
+            RecyclerView.ViewHolder vh = grid.getChildViewHolder(grid.getChildAt(i));
+            if (vh instanceof Holder) {
+                ((Holder) vh).banner.setImageDrawable(null);
+                ((Holder) vh).icon.setImageDrawable(null);
+            }
+        }
+        grid.getRecycledViewPool().clear();
+        items.clear();
+        notifyDataSetChanged();
+    }
+
     static final class Holder extends RecyclerView.ViewHolder {
         final View card;
+        final View sheen;
+        final float lift;
         final ImageView banner;
         final ImageView icon;
         final TextView label;
@@ -370,9 +390,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             icon = v.findViewById(R.id.icon);
             label = v.findViewById(R.id.label);
             name = v.findViewById(R.id.name);
+            sheen = v.findViewById(R.id.sheen);
             this.reducedMotion = reducedMotion;
 
             final float density = v.getResources().getDisplayMetrics().density;
+            // tvOS focus: the tile rises off the screen. translationZ casts the shadow from the rounded
+            // outline on the RenderThread, so it costs no bitmap and no extra layer.
+            lift = 14f * density;
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
@@ -392,20 +416,24 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
             card.setOnFocusChangeListener((view, focused) -> {
                 float s = focused ? FOCUS_SCALE : 1.0f;
+                float z = focused ? lift : 0f;
                 view.animate().cancel();
                 name.animate().cancel();
+                sheen.animate().cancel();
+                sheen.animate().alpha(focused ? 1f : 0f).setDuration(focused ? 200 : 120).start();
                 if (reducedMotion) {
                     // No overshoot: the extra frames redraw the banner and the dock band on a weak GPU.
-                    view.animate().scaleX(s).scaleY(s)
+                    view.animate().scaleX(s).scaleY(s).translationZ(z)
                             .setDuration(focused ? 120 : 80)
                             .setInterpolator(new DecelerateInterpolator())
                             .withLayer()
                             .start();
                     name.animate().alpha(focused ? 1f : 0f).setDuration(100).start();
                 } else {
-                    view.animate().scaleX(s).scaleY(s)
-                            .setDuration(focused ? 260 : 180)
-                            .setInterpolator(new OvershootInterpolator(focused ? 1.6f : 0f))
+                    // A soft tvOS spring: a touch of overshoot on the way up, none on the way down.
+                    view.animate().scaleX(s).scaleY(s).translationZ(z)
+                            .setDuration(focused ? 240 : 160)
+                            .setInterpolator(focused ? new OvershootInterpolator(0.9f) : new DecelerateInterpolator())
                             .withLayer()
                             .start();
                     name.animate().alpha(focused ? 1f : 0f)

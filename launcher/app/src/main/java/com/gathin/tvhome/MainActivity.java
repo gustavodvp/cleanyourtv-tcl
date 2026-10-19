@@ -52,10 +52,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.dynamicanimation.animation.DynamicAnimation;
-import androidx.dynamicanimation.animation.FloatPropertyCompat;
-import androidx.dynamicanimation.animation.SpringAnimation;
-import androidx.dynamicanimation.animation.SpringForce;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -96,12 +92,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView shamsiDate;
     private boolean shamsi;
     private String vpnApp;
-    private SpringAnimation springX, springY;
-    private float glassTargetX, glassTargetY;
-    // How far the grid has scrolled the glass. springY works without it, in grid content space, so a
-    // scroll moves the glass in lockstep with its tile instead of becoming a moving spring target.
-    private float glassScrollShift;
     private boolean glassShown;
+    /** The theme's wallpaper file and the view showing it; the bitmap is dropped while the launcher is hidden. */
+    private File wallFile;
+    private ImageView wallView;
     // Static so they survive the activity being destroyed while another app is open (low-memory TVs,
     // or Developer options → "Don't keep activities"); they only reset when the process dies.
     private static int lastFocused = 0;
@@ -196,8 +190,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
-        if (cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
+        wallFile = cfg.wallpaper;
+        if (wallFile != null) showWallpaper(wallFile);
         glass = findViewById(R.id.glass);
+        // tvOS focus lifts the tile itself (AppAdapter.Holder); the floating glass is not used.
+        glass.setVisibility(View.GONE);
         ambient = findViewById(R.id.ambient);
         heroName = findViewById(R.id.heroName);
         greeting = findViewById(R.id.greeting);
@@ -242,41 +239,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
 
-        // Keep the glass glued to its tile while the grid scrolls.
-        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
-                if (!glassShown) return;
-                glassTargetY -= dy;
-                glassScrollShift -= dy;
-                glass.setTranslationY(glass.getTranslationY() - dy);
-            }
-        });
-
-        // Liquid feel: soft springs on the highlight's position.
-        springX = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_X);
-        springY = new SpringAnimation(glass, new FloatPropertyCompat<View>("glassContentY") {
-            @Override
-            public float getValue(View v) {
-                return v.getTranslationY() - glassScrollShift;
-            }
-
-            @Override
-            public void setValue(View v, float value) {
-                v.setTranslationY(value + glassScrollShift);
-            }
-        });
-        for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            if (reducedMotion) {
-                // Stiff and almost critically damped: settles in a few frames instead of oscillating,
-                // and stops once the highlight is within 1.5 px of its tile.
-                s.setSpring(new SpringForce().setStiffness(1400f).setDampingRatio(0.95f));
-                s.setMinimumVisibleChange(1.5f);
-            } else {
-                s.setSpring(new SpringForce().setStiffness(260f).setDampingRatio(0.58f));
-            }
-        }
-
         btnInputs = findViewById(R.id.btnInputs);
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
@@ -286,6 +248,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
         btnSettings.setOnClickListener(v -> open(systemIntent(Settings.ACTION_SETTINGS)));
+        // tvOS top bar: round icon buttons that open into a labelled pill while focused.
+        for (TextView b : new TextView[]{(TextView) btnInputs, btnWifi, (TextView) btnSettings}) {
+            b.setTag(R.id.pill_label, b.getText());
+            View.OnFocusChangeListener previous = b.getOnFocusChangeListener();
+            b.setOnFocusChangeListener((v, f) -> {
+                if (previous != null) previous.onFocusChange(v, f);
+                applyPill(b);
+            });
+            applyPill(b);
+        }
         btnSettings.setOnLongClickListener(v -> {
             if (!moduleCards) return false;   // off: a long press does nothing, as before the feature
             showModuleCards();
@@ -353,10 +325,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             opts.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;   // no alpha needed, half the memory
             android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
             if (bmp == null) return;
-            android.widget.ImageView wall = new android.widget.ImageView(this);
-            wall.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
-            wall.setImageBitmap(bmp);
-            root.addView(wall, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            if (wallView == null) {
+                wallView = new ImageView(this);
+                wallView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                root.addView(wallView, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            }
+            wallView.setImageBitmap(bmp);
+            // The picture covers the screen: skip painting the window and root colours under it.
+            root.setBackground(null);
+            getWindow().setBackgroundDrawable(null);
         } catch (Exception | OutOfMemoryError e) {
             // A bad or huge picture must never take the home screen down; the plain colour stays.
         }
@@ -456,6 +433,42 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        if (wallFile != null && wallView != null && wallView.getDrawable() == null) showWallpaper(wallFile);
+    }
+
+    /**
+     * Another app is on screen: give its memory back. The wallpaper bitmap and every app banner go;
+     * onStart decodes the picture again and onResume rebuilds the tiles, as it always does.
+     */
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (wallView != null) {
+            wallView.setImageDrawable(null);
+            root.setBackgroundColor(Color.BLACK);
+        }
+        adapter.releaseImages(grid);
+    }
+
+    /** Collapses a top button to its round icon, or opens it into a pill with its label while focused. */
+    private void applyPill(TextView b) {
+        boolean open = b.isFocused();
+        Object label = b.getTag(R.id.pill_label);
+        b.setText(open && label != null ? (CharSequence) label : "");
+        b.setCompoundDrawablePadding(open ? Math.round(9 * density) : 0);
+        int side = Math.round(11 * density);
+        b.setPaddingRelative(open ? Math.round(16 * density) : side, 0, open ? Math.round(20 * density) : side, 0);
+    }
+
+    /** Sets a top button's label; it shows while the button is focused (applyPill). */
+    private void setPillLabel(TextView b, CharSequence label) {
+        b.setTag(R.id.pill_label, label);
+        applyPill(b);
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         unregisterReceiver(packageReceiver);
@@ -497,32 +510,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Tile rect in root coordinates, using layout positions (ignores the scale animation).
         Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
         root.offsetDescendantRectToMyCoords(card, r);
-        float pad = 6f * density;        // matches GlassView's glow inset
-        float w = card.getWidth() * AppAdapter.FOCUS_SCALE + 2 * pad;
-        float h = card.getHeight() * AppAdapter.FOCUS_SCALE + 2 * pad;
-        float x = r.exactCenterX() - w / 2f;
-        float y = r.exactCenterY() - h / 2f;
-
-        ViewGroup.LayoutParams lp = glass.getLayoutParams();
-        if (lp.width != (int) w || lp.height != (int) h) {
-            lp.width = (int) w;
-            lp.height = (int) h;
-            glass.setLayoutParams(lp);
-            glass.setRadius(AppAdapter.cornerRadius(card.getWidth(), density) * AppAdapter.FOCUS_SCALE + pad);
-        }
-        glassTargetX = x;
-        glassTargetY = y;
-        if (!glassShown) {
-            springX.cancel();
-            springY.cancel();
-            glass.setTranslationX(x);
-            glass.setTranslationY(y);
-            glass.animate().alpha(1f).setDuration(reducedMotion ? 100 : 180).start();
-            glassShown = true;
-        } else {
-            springX.animateToFinalPosition(x);
-            springY.animateToFinalPosition(y - glassScrollShift);
-        }
+        float pad = 6f * density;        // room for the lifted tile's shadow when scrolling into view
         View item = (View) card.getParent();
         if (position < COLUMNS) {
             // Dock: park it at the bottom of the screen and show the top shelf for this app.
@@ -535,7 +523,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (reducedMotion) grid.scrollBy(0, dy);
                 else grid.smoothScrollBy(0, dy);
             }
-            showHero(position, scroll ? r.top - dy : r.top);
+            // tvOS: no top shelf text; the app's name shows under its tile.
         } else {
             hideHero();
             // Scroll just enough so the whole glass (not only the tile) is visible.
@@ -755,9 +743,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             text = TextUtils.ellipsize(text, paint, Math.max(0, room), TextUtils.TruncateAt.END).toString();
             SpannableString label = new SpannableString(text + " " + badge);
             label.setSpan(span, text.length() + 1, label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            btnWifi.setText(label);
+            setPillLabel(btnWifi, label);
         } else {
-            btnWifi.setText(text);
+            setPillLabel(btnWifi, text);
         }
         btnWifi.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
     }

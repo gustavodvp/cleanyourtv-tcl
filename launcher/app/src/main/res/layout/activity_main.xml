@@ -10,13 +10,26 @@
         android:id="@+id/ambient"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:alpha="0" />
+        android:alpha="0"
+        android:visibility="gone" />
+
+    <!-- tvOS shades over the wallpaper (which is added behind everything in code). -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/scrim_bottom" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="140dp"
+        android:background="@drawable/scrim_top" />
 
     <!-- Top shelf: the focused dock app's name, positioned above the dock in code. -->
     <TextView
         android:id="@+id/heroName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:visibility="gone"
         android:layout_marginStart="68dp"
         android:alpha="0"
         android:textColor="#FFFFFFFF"
@@ -46,6 +59,7 @@
                 android:layout_alignParentStart="true"
                 android:layout_toStartOf="@+id/topButtons"
                 android:layout_marginEnd="16dp"
+                android:visibility="gone"
                 android:orientation="vertical">
 
                 <!-- The header texts use gravity left, not start: the launcher lays out left to right
@@ -158,9 +172,23 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
-                android:layout_alignBottom="@id/leftBlock"
-                android:layout_marginBottom="6dp"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
+
+                <!-- tvOS: just the time, small, next to the round buttons. -->
+                <TextClock
+                    android:id="@+id/clockSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:format12Hour="h:mm"
+                    android:format24Hour="HH:mm"
+                    android:textColor="#F2FFFFFF"
+                    android:textSize="22sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 400"
+                    android:includeFontPadding="false" />
 
                 <TextView
                     android:id="@+id/btnInputs"

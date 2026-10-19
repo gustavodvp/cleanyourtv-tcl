@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Full label of a round top button; shown only while the button has focus. -->
+    <item name="pill_label" type="id" />
+</resources>
