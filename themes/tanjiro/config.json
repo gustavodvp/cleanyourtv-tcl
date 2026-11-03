@@ -2,8 +2,8 @@
   "background_color": "#0B0A0C",
   "wallpaper": true,
   "dock_apps": [
+    "io.gh.reisxd.tizentube.cobalt",
     "com.netflix.ninja",
-    "app.smarttube.fdroid",
     "com.amazon.amazonvideo.livingroom",
     "com.wbd.stream",
     "com.globo.globotv"
