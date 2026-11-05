@@ -27,6 +27,7 @@
     <string name="home_settings">Default home</string>
     <string name="home_settings_help">Choose a home screen in system settings, then press Home.</string>
     <string name="input_key_service_description">Opens the input switcher when the remote\'s Input button is pressed.</string>
+    <string name="keymap_service_description">Opens the app you chose when a mapped remote button is pressed.</string>
     <string name="home_key_name">Home button</string>
     <string name="home_key_description">Makes the remote\'s Home button open this launcher.</string>
     <string name="card_prompt_title">New card from %1$s</string>
@@ -48,4 +49,12 @@
     <string name="card_state_new">New</string>
     <string name="card_state_new_key">New key</string>
     <string name="card_state_new_label">New name</string>
+    <string name="keymap_title">Remote button shortcuts</string>
+    <string name="keymap_service_off">Turn on the accessibility service so the buttons can be read.</string>
+    <string name="keymap_open_accessibility">Open accessibility settings</string>
+    <string name="keymap_add">Add shortcut</string>
+    <string name="keymap_press">Press the remote button you want to map…</string>
+    <string name="keymap_pick">Open which app with %1$s?</string>
+    <string name="keymap_remove_q">Remove this shortcut?</string>
+    <string name="keymap_remove">Remove</string>
 </resources>

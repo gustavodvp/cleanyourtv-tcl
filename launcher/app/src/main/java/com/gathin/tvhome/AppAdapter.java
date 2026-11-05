@@ -53,7 +53,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     static final class Entry {
-        static final int APP = 0, HOME_SETTINGS = 1, CARD = 2;
+        static final int APP = 0, HOME_SETTINGS = 1, CARD = 2, KEYMAP = 3;
 
         final int kind;
         final String label;
@@ -179,6 +179,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                     new ComponentName(ctx, HomeSettingsActivity.class), null,
                     ctx.getDrawable(R.drawable.ic_home_settings), null, 0));
         }
+        // Always-on tile for the remote button shortcuts screen.
+        fresh.add(new Entry(Entry.KEYMAP, ctx.getString(R.string.keymap_title),
+                new ComponentName(ctx, KeyMapActivity.class), null,
+                ctx.getDrawable(R.drawable.ic_home_settings), null, 0));
         items.clear();
         items.addAll(fresh);
         notifyDataSetChanged();
@@ -267,6 +271,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     /** Opens the tile's activity by explicit component, with no extras: a card can name nothing else. */
     private void launch(Entry e, View from) {
+        if (e.kind == Entry.KEYMAP) {
+            ctx.startActivity(new Intent(ctx, KeyMapActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return;
+        }
         if (e.kind == Entry.HOME_SETTINGS) {
             ctx.startActivity(new Intent(ctx, HomeSettingsActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -377,6 +385,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final TextView label;
         final TextView name;
         final boolean reducedMotion;
+        private boolean okLongHandled;
 
         Holder(View v, TileListener listener, boolean reducedMotion) {
             super(v);
@@ -402,11 +411,21 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setClipToOutline(true);
 
             card.setOnKeyListener((view, keyCode, event) -> {
-                // Open the app as OK goes down instead of when it comes back up: one press shorter.
-                // The up is swallowed so it cannot click again; the app details move to the Menu key.
+                // Short OK opens the app when the key comes back up; holding OK (first repeat) opens the
+                // app details (Uninstall). Menu/Info open the details too.
                 if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
                         || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_BUTTON_A) {
-                    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) view.performClick();
+                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                        if (event.getRepeatCount() == 1) {
+                            okLongHandled = true;
+                            view.performLongClick();
+                        } else if (event.getRepeatCount() == 0) {
+                            okLongHandled = false;
+                        }
+                    } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                        if (!okLongHandled && !event.isCanceled()) view.performClick();
+                        okLongHandled = false;
+                    }
                     return true;
                 }
                 if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_INFO) {
